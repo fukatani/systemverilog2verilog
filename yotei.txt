@@ -1,0 +1,26 @@
+Easy conversions:
+always_comb --> always @*
+always_latch --> always @*, may want to add a synthesis directive for latch
+always_ff --> always
+int --> integer or reg signed [31:0]
+shortint --> reg signed [15:0]
+longint --> time or reg signed [63:0]
+bit/logic --> reg (assign‚³‚ê‚Ä‚¢‚é‚Æ‚«‚Íwire)
+byte --> reg [7:0] (assign‚³‚ê‚Ä‚¢‚é‚Æ‚«‚Íwire)
+unique --> remove and add synthesis directives full_case parallel_case
+priority --> remove and add synthesis directives full_case
+
+‚»‚Ì‚Ü‚Ü
+
+
+More challenging conversions:
+var = '0; --> var = {PARAM_VAR_BITS{1'b0}};
+'0 --> 'd0
+
+
+'1/'X/'Z --> same as '0 and substitute all 0 with 1/X/Z respectively
+function void --> if not called by any other function then task else function reg any calls should assign a dummy bit.
+interface --> either add each net to the respective module port list or create `include files.
+enum --> make each item a parameter, make the variable of packed array (aka IEEE 1364 vector) of reg
+struct --> either separate out each item or make one bus with parameters as position keys
+union packed --> same as struct plus some intelligent bus connections (ex: {dest_0[3:0],dest_1,...,dest_n[1:0]}={src_0,src_1[1:0]...,src_n[9:0]} )
