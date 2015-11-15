@@ -31,8 +31,10 @@ def main():
 
 
     for file_name in filelist:
+        comdel_file = file_name.split()[0] + '_comdel.v'
+        delete_comments(file_name, comdel_file)
         split_file_name = file_name.split()[0] + '_split.v'
-        split_logic_decrarement(file_name, split_file_name)
+        split_logic_decrarement(comdel_file, split_file_name)
 
         sj = skip_judge()
         read_file = open(split_file_name, 'r')
@@ -162,7 +164,6 @@ def replace_word(word):
         return word
 
 def split_logic_decrarement(read_file_name, write_file_name):
-    #TODO
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
         for line in f:
@@ -215,6 +216,27 @@ def separate_in_bracket(line):
             var_names.append(word)
     return (tuple(decrarements), tuple(packed_bit),
             tuple(unpacked_bit), tuple(var_names))
+
+def delete_comments(read_file_name, write_file_name):
+    write_file = open(write_file_name, 'w')
+    with open(read_file_name, 'r') as f:
+        block_comment_flag = False
+        for line in f:
+            if block_comment_flag:
+                if line.find('*/'):
+                    write_file.write(line[line.find('*/'):-1])
+                else:
+                    continue
+            elif line.find('//') >= 0:
+                write_file.write(line[0:line.find('//')])
+            elif line.find('/*') >= 0:
+                if line.find('*/'):
+                    write_file.write(line[0:line.find('/*')] + line[line.find('*/'):-1])
+                else:
+                    write_file.write(line[0:line.find('/*')])
+                    block_comment_flag = True
+            else:
+                write_file.write(line)
 
 if __name__ == '__main__':
     main()
