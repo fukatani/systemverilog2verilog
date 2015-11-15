@@ -5,6 +5,7 @@ module TOP(CLK, RST, WRITE, READ, ADDR, WRITE_DATA, READ_DATA);
   output [1:0] READ_DATA;
   logic [4:3] reg0;
   logic wire1;
+  logic [ 1:0][22:0] l1, l1[2:0];
   int num;
 
 
@@ -25,7 +26,8 @@ module TOP(CLK, RST, WRITE, READ, ADDR, WRITE_DATA, READ_DATA);
   property ttttt;
   endproperty
 
-
-
 endmodule
 
+
+module
+endmodule

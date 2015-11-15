@@ -6,15 +6,18 @@
 #
 # Created:     14/11/2015
 # Copyright:   (c) rf 2015
-# Licence:     <your licence>
+# Licence:     Apache Licence 2.0
 #-------------------------------------------------------------------------------
 
 from optparse import OptionParser
 import os
+import copy
 
 def main():
     optparser = OptionParser()
     (options, args) = optparser.parse_args()
+
+
 
     #TODO interface, enum, struct, union
 
@@ -23,44 +26,60 @@ def main():
     else:
         raise Exception("Verilog file is not assigned.")
 
-    for f in filelist:
-        if not os.path.exists(f): raise IOError("file not found: " + f)
+    for file_name in filelist:
+        if not os.path.exists(file_name): raise IOError("file not found: " + file_name)
+
 
     for file_name in filelist:
+        split_file_name = file_name.split()[0] + '_split.v'
+        split_logic_decrarement(file_name, split_file_name)
+
         sj = skip_judge()
-        read_file = open(file_name, 'r')
+        read_file = open(split_file_name, 'r')
         write_file = open(file_name.split()[0] + '_conv.v', 'w')
+
         try:
             for line_num, line in enumerate(read_file):
-                skip_start_line_num = line_num
-                while sj.judge_line(line):
-                    line = next(read_file)
-                    line_num += 1
-                line = convert_for_logic(line, read_file)
-                write_file.write(convert_line(line))
+                write_file.write(line)
+                if line.split() and line.split()[0] == 'module':
+                    line = next(read_file) #skip module declarement
+                    module_lines = []
+                    while not line.split() or line.split()[0] != 'endmodule':
+                        module_lines.append(line)
+                        line = next(read_file)
+                    while module_lines:
+                        skip_start_line_num = line_num
+                        while sj.judge_line(module_lines[0]):
+                            module_lines = module_lines[1:]
+                            line_num += 1
+                        module_lines[0] = convert_for_logic(module_lines[0], module_lines)
+                        write_file.write(convert_line(module_lines[0]))
+                        module_lines = module_lines[1:]
+                    write_file.write(line) #write endmodule
+
         except (StopIteration, Endmodule_exception):
             print('Error!! Irregular description around line ' + str(skip_start_line_num))
 
 class Endmodule_exception(Exception): pass
 
-def convert_for_logic(line, read_file):
-    #TODO input
+def convert_for_logic(line, module_lines):
     logic_convert_dict = {'logic': 'reg', 'bit': 'reg', 'byte': 'reg [7:0]'}
     wire_convert_dict = {'logic': 'wire', 'bit': 'wire', 'byte': 'wire [7:0]'}
     wire_flag = False
 
     words = line.replace(';', '').split()
+    if not words: return line
+    if words[0] == 'input' or words[0] == 'output':
+        words = words[1:]
     if words[0] in logic_convert_dict.keys():
         if words[1][0] == '[':
             var_name = words[2]
         else:
             var_name = words[1]
-        start_pointer = read_file.tell()
-        while 'endmodule' in line:
-            if 'assign' in line and var_name in line:
+        for templine in module_lines:
+            if 'assign' in templine and var_name in templine:
                 wire_flag = True
                 break
-        read_file.seek(start_pointer)
         if wire_flag:
             line = line.replace(words[0], wire_convert_dict[words[0]])
         else:
@@ -103,26 +122,26 @@ class skip_judge(object):
             return True
         else:
             if 'assert' in line:
-                self.assert_flag = True
+                self.assert_flag = ';' not in line
                 return True
             elif 'default' in line:
-                self.default_flag = True
+                self.default_flag = ';' not in line
                 return True
             elif 'clocking' in line:
-                self.clocking_flag = True
+                self.clocking_flag = 'endclocking' not in line
                 return True
             elif 'sequence' in line:
-                self.sequence_flag = True
+                self.sequence_flag = 'endsequence' not in line
                 return True
             elif 'property' in line:
-                self.property_flag = True
+                self.property_flag = 'endproperty' not in line
                 return True
 
 def convert_line(line):
     words = line.split(' ')
-    for word in words:
-        delete_word(word)
-        replace_word(word)
+    for i, word in enumerate(words):
+        words[i] = delete_word(word)
+        words[i] = replace_word(word)
     converted_line = ' '.join(words)
     return converted_line
 
@@ -141,6 +160,61 @@ def replace_word(word):
         return replace_dict[word]
     else:
         return word
+
+def split_logic_decrarement(read_file_name, write_file_name):
+    #TODO
+    write_file = open(write_file_name, 'w')
+    with open(read_file_name, 'r') as f:
+        for line in f:
+            words = line.replace(',', '').split()
+            if not words:
+                write_file.write(line)
+                continue
+            if set(['logic', 'bit', 'byte']).intersection(words) and ',' in line:
+                decrarements, packed_bit, unpacked_bit, var_names = separate_in_bracket(line)
+                for var in var_names:
+                    write_file.write(' '.join(decrarements + unpacked_bit + (var,) + packed_bit) + ';\n')
+            else:
+                write_file.write(line)
+
+def separate_in_bracket(line):
+    decrarements = []
+    packed_bit = []
+    unpacked_bit = []
+    var_names = []
+
+    line = line.replace(',', '')
+    line = line.replace(';', '')
+    line = line.replace('[', ' [')
+    line = line.replace(']', '] ')
+
+    words = line.split()
+
+    in_bracket_flag = False
+    for word in words:
+        if word in ('logic', 'bit', 'byte', 'input', 'output', 'inout'):
+            decrarements.append(word)
+        elif word[0] == '[':
+            in_bracket_flag = (word[-1] != ']')
+            if var_names:
+                packed_bit.append(word)
+            else:
+                unpacked_bit.append(word)
+        elif word[-1] == ']':
+            in_bracket_flag = False
+            if var_names:
+                packed_bit.append(word)
+            else:
+                unpacked_bit.append(word)
+        elif in_bracket_flag:
+            if var_names:
+                packed_bit.append(word)
+            else:
+                unpacked_bit.append(word)
+        else:
+            var_names.append(word)
+    return (tuple(decrarements), tuple(packed_bit),
+            tuple(unpacked_bit), tuple(var_names))
 
 if __name__ == '__main__':
     main()
