@@ -2,4 +2,4 @@
 Converting systemverilog to verilog.
 
 
-!!!This project is still incompleted. Not work.
+!!!This project is still under construction.
