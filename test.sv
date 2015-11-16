@@ -5,8 +5,9 @@ module TOP(CLK, RST, WRITE, READ, ADDR, WRITE_DATA, READ_DATA);
   output [1:0] READ_DATA;
   logic [4:3] reg0;
   logic wire1;
-  logic [ 1:0][22:0] l1, l1[2:0];
+  logic [ 1:0][22:0] l1, l2[2:0];
   int num;
+  enum logic [2:0] {PINK,GREEN,YELLOW=5,BLUE} color_e;
 
 
   always_ff @(posedge CLK) begin

@@ -16,9 +16,6 @@ import copy
 def main():
     optparser = OptionParser()
     (options, args) = optparser.parse_args()
-
-
-
     #TODO interface, enum, struct, union
 
     if args:
@@ -29,12 +26,14 @@ def main():
     for file_name in filelist:
         if not os.path.exists(file_name): raise IOError("file not found: " + file_name)
 
-
     for file_name in filelist:
         comdel_file = file_name.split()[0] + '_comdel.v'
         delete_comments(file_name, comdel_file)
+        enum_file_name = file_name.split()[0] + '_eexpand.v'
+        expand_enum(comdel_file, enum_file_name)
         split_file_name = file_name.split()[0] + '_split.v'
-        split_logic_decrarement(comdel_file, split_file_name)
+        split_logic_decrarement(enum_file_name, split_file_name)
+
 
         sj = skip_judge()
         read_file = open(split_file_name, 'r')
@@ -79,7 +78,7 @@ def convert_for_logic(line, module_lines):
         else:
             var_name = words[1]
         for templine in module_lines:
-            if 'assign' in templine and var_name in templine:
+            if 'assign' in templine and var_name in templine[0:templine.find('=')]:
                 wire_flag = True
                 break
         if wire_flag:
@@ -237,6 +236,37 @@ def delete_comments(read_file_name, write_file_name):
                     block_comment_flag = True
             else:
                 write_file.write(line)
+
+def expand_enum(read_file_name, write_file_name):
+    write_file = open(write_file_name, 'w')
+    with open(read_file_name, 'r') as f:
+        for line in f:
+            if 'enum' in line.split():
+                for val, num in get_enum_values(line).items():
+                    write_file.write(" ".join(('localparam', val, "= 'd", str(num), ';')))
+            else:
+                write_file.write(line)
+
+def get_enum_values(line):
+    rb_pos = line.find('{')
+    lb_pos = line.find('}')
+
+    if rb_pos == -1 or lb_pos == -1:
+        raise Exception('Illegal enumerate.')
+
+    line = line[rb_pos+1:lb_pos]
+    line = line.replace(' ','')
+
+    enum_dict = {}
+    i = 0
+    for val in line.split(','):
+        if '=' in val:
+            i = int(val[val.find('=') + 1:])
+            enum_dict[val[0:val.find('=')]] = i
+        else:
+            enum_dict[val] = i
+            i += 1
+    return enum_dict
 
 if __name__ == '__main__':
     main()
