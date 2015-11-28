@@ -12,32 +12,32 @@
 from optparse import OptionParser
 import os
 import copy
+import re
 
-def main():
+def convert2sv(filelist=None):
     optparser = OptionParser()
     (options, args) = optparser.parse_args()
-    #TODO interface, enum, struct, union
+    #TODO interface, struct, union
 
     if args:
         filelist = args
-    else:
+    elif not filelist:
         raise Exception("Verilog file is not assigned.")
 
     for file_name in filelist:
         if not os.path.exists(file_name): raise IOError("file not found: " + file_name)
 
     for file_name in filelist:
-        comdel_file = file_name.split()[0] + '_comdel.v'
+        name_without_extension = re.sub("\.[^.]*$", "", file_name)
+        comdel_file = name_without_extension + '_comdel.v'
         delete_comments(file_name, comdel_file)
-        enum_file_name = file_name.split()[0] + '_eexpand.v'
+        enum_file_name = name_without_extension + '_eexpand.v'
         expand_enum(comdel_file, enum_file_name)
-        split_file_name = file_name.split()[0] + '_split.v'
+        split_file_name = name_without_extension + '_split.v'
         split_logic_decrarement(enum_file_name, split_file_name)
-
-
         sj = skip_judge()
         read_file = open(split_file_name, 'r')
-        write_file = open(file_name.split()[0] + '_conv.v', 'w')
+        write_file = open(name_without_extension + '_conv.v', 'w')
 
         try:
             for line_num, line in enumerate(read_file):
@@ -238,6 +238,26 @@ def delete_comments(read_file_name, write_file_name):
                 write_file.write(line)
 
 def expand_enum(read_file_name, write_file_name):
+    def get_enum_values(line):
+        rb_pos = line.find('{')
+        lb_pos = line.find('}')
+
+        if rb_pos == -1 or lb_pos == -1:
+            raise Exception('Illegal enumerate.')
+
+        line = line[rb_pos+1:lb_pos]
+        line = line.replace(' ','')
+
+        enum_dict = {}
+        i = 0
+        for val in line.split(','):
+            if '=' in val:
+                i = int(val[val.find('=') + 1:])
+                enum_dict[val[0:val.find('=')]] = i
+            else:
+                enum_dict[val] = i
+                i += 1
+        return enum_dict
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
         for line in f:
@@ -247,26 +267,91 @@ def expand_enum(read_file_name, write_file_name):
             else:
                 write_file.write(line)
 
-def get_enum_values(line):
-    rb_pos = line.find('{')
-    lb_pos = line.find('}')
+def make_module_info(read_file_name, write_file_name):
+    #TODO imple
+    write_file = open(write_file_name, 'w')
+    in_module = False
+    dec_line = False
+    with open(read_file_name, 'r') as f:
+        for line in f:
+            if 'module' in line.split():
+                module_name = line.split()[1].split('(')
+                new_module = module_info(module_name)
+                dec_line = ';' in line
+            if dec_line:
+                new_module.dec_lines.append(line)
+                if ';' in line:
+                    dec_line = False
+                    new_module.readfirtsline()
+            elif in_module:
+                module_info.readline(line)
+            elif 'endmodule':
+                in_module = False
+                print(module_info.tostr())
 
-    if rb_pos == -1 or lb_pos == -1:
-        raise Exception('Illegal enumerate.')
+class module_info(object):
+    def __init__(self, name):
+        self.name = name
+        self.dec_lines = []
+        self.input = []
+        self.output = []
+        self.inout = []
 
-    line = line[rb_pos+1:lb_pos]
-    line = line.replace(' ','')
+    def readfirtsline(self):
+        """[FUNCTIONS]
+        ex.
+        module COMPARE(output GT, output LE, output EQ,
+                       input [1:0] A, input [1:0] B, input C);
+        """
+        first_line = " ".join(self.dec_lines)
+        first_line = re.sub("\[.+?\]", " ", first_line)
+        in_bracket = re.findall("\(.+?\)", first_line)[0]
+        words = in_bracket.split(',')
+        for i, word in enumerate(words):
+            if word == 'input':
+                self.input.append(words[i + 1])
+            elif word == 'output':
+                self.output.append(words[i + 1])
+            if word == 'inout':
+                self.inout.append(words[i + 1])
 
-    enum_dict = {}
-    i = 0
-    for val in line.split(','):
-        if '=' in val:
-            i = int(val[val.find('=') + 1:])
-            enum_dict[val[0:val.find('=')]] = i
-        else:
-            enum_dict[val] = i
-            i += 1
-    return enum_dict
+    def readline(self, line):
+        """[FUNCTIONS]
+        ex.
+        module COMPARE(GT, LE, EQ, A, B, C);
+        縲縲output GT, LE, EQ;
+        縲縲input [1: width_A] A, B;
+        縲縲input [1: width_B] C;
+        """
+        #line = line.replace('(', ' ')
+        #line = line.replace(')', ' ')
+        line = re.sub("\[.+?\]", " ", line)
+        in_input_port = False
+        in_output_port = False
+        in_inout_port = False
+        for word in line.split():
+            if word == 'input':
+                assert(not(in_input_port) and not(in_output_port) and not(in_inout_port))
+                in_input_port = True
+            elif word == 'output':
+                assert(not(in_input_port) and not(in_output_port) and not(in_inout_port))
+                in_output_port = True
+            elif word == 'inout':
+                assert(not(in_input_port) and not(in_output_port) and not(in_inout_port))
+                in_inout_port = True
+            elif in_input_port:
+                self.input.append(word)
+            elif in_output_port:
+                self.output.append(word)
+            elif in_inout_port:
+                self.inout.append(word)
+            elif word == ';':
+                in_input_port = False
+                in_output_port = False
+                in_inout_port = False
+
+    def tostr(self):
+        return self.name + 'input' + str(self.input) + 'output' + str(self.output) + 'inout'+ str(self.inout)
 
 if __name__ == '__main__':
-    main()
+    convert2sv(["test.sv",])
