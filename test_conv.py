@@ -21,8 +21,8 @@ class TestSequenceFunctions(unittest.TestCase):
         pass
 
     def test_normal(self):
-        sv2v.convert2sv(["test.sv",])
-        filecmp.cmpfiles('test_conv.v', 'test_conv_expect.v')
+        sv2v.convert2sv(["test.sv",], True)
+        filecmp.cmp('test_conv.v', 'test_conv_expect.v')
 
 
 if __name__ == '__main__':

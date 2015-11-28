@@ -14,12 +14,14 @@ import os
 import copy
 import re
 
-def convert2sv(filelist=None):
+debug = True
+
+def convert2sv(filelist=None, is_testing=False):
     optparser = OptionParser()
     (options, args) = optparser.parse_args()
     #TODO interface, struct, union
 
-    if args:
+    if args and not is_testing:
         filelist = args
     elif not filelist:
         raise Exception("Verilog file is not assigned.")
@@ -31,6 +33,9 @@ def convert2sv(filelist=None):
         name_without_extension = re.sub("\.[^.]*$", "", file_name)
         comdel_file = name_without_extension + '_comdel.v'
         delete_comments(file_name, comdel_file)
+
+        make_module_info(comdel_file)
+
         enum_file_name = name_without_extension + '_eexpand.v'
         expand_enum(comdel_file, enum_file_name)
         split_file_name = name_without_extension + '_split.v'
@@ -54,7 +59,7 @@ def convert2sv(filelist=None):
                             module_lines = module_lines[1:]
                             line_num += 1
                         module_lines[0] = convert_for_logic(module_lines[0], module_lines)
-                        write_file.write(convert_line(module_lines[0]))
+                        write_file.write(replace_in_line(module_lines[0]))
                         module_lines = module_lines[1:]
                     write_file.write(line) #write endmodule
 
@@ -70,7 +75,7 @@ def convert_for_logic(line, module_lines):
 
     words = line.replace(';', '').split()
     if not words: return line
-    if words[0] == 'input' or words[0] == 'output':
+    if words[0] == 'input' or words[0] == 'output' or words[0] == 'inout':
         words = words[1:]
     if words[0] in logic_convert_dict.keys():
         if words[1][0] == '[':
@@ -78,9 +83,13 @@ def convert_for_logic(line, module_lines):
         else:
             var_name = words[1]
         for templine in module_lines:
+            #TODO reflect port information
+            #TODO input module name
+            mdb = module_data_base()
             if 'assign' in templine and var_name in templine[0:templine.find('=')]:
                 wire_flag = True
                 break
+
         if wire_flag:
             line = line.replace(words[0], wire_convert_dict[words[0]])
         else:
@@ -88,7 +97,9 @@ def convert_for_logic(line, module_lines):
     return line
 
 class skip_judge(object):
-
+    """ [CLASSES]
+        For skip not verilog block.ec. property ~ endproperty, cloking ~ endclocking.
+    """
     def __init__(self):
         self.default_flag = False
         self.assert_flag = False
@@ -138,7 +149,23 @@ class skip_judge(object):
                 self.property_flag = 'endproperty' not in line
                 return True
 
-def convert_line(line):
+def replace_in_line(line):
+    def delete_word(word):
+        targets = ('unique', 'priority')
+        if word in targets:
+            return ''
+        else:
+            return word
+
+    def replace_word(word):
+        replace_dict = {'always_comb': 'always @*', 'always_latch': 'always @*',
+                        'always_ff': 'always','int': 'integer', 'shortint': 'reg signed [15:0]',
+                        'longint': 'reg signed [63:0]', "'0": "'d0", "'1": "'hffff"}
+        if word in replace_dict.keys():
+            return replace_dict[word]
+        else:
+            return word
+
     words = line.split(' ')
     for i, word in enumerate(words):
         words[i] = delete_word(word)
@@ -146,23 +173,17 @@ def convert_line(line):
     converted_line = ' '.join(words)
     return converted_line
 
-def delete_word(word):
-    targets = ('unique', 'priority')
-    if word in targets:
-        return ''
-    else:
-        return word
-
-def replace_word(word):
-    replace_dict = {'always_comb': 'always @*', 'always_latch': 'always @*',
-                    'always_ff': 'always','int': 'integer', 'shortint': 'reg signed [15:0]',
-                    'longint': 'reg signed [63:0]', "'0": "'d0", "'1": "'hffff"}
-    if word in replace_dict.keys():
-        return replace_dict[word]
-    else:
-        return word
-
 def split_logic_decrarement(read_file_name, write_file_name):
+    """ [Functions]
+       input A;
+       output B;
+       logic A,B;
+       ->
+       input A;
+       output B;
+       logic A;
+       logic B;
+    """
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
         for line in f:
@@ -178,6 +199,14 @@ def split_logic_decrarement(read_file_name, write_file_name):
                 write_file.write(line)
 
 def separate_in_bracket(line):
+    """ [Functions]
+         input logic [2: 1] A,B [1:0];
+         ->
+         declarements = ['input', 'logic']
+         packed bit = '[2: 1]'
+         var_names = ['A', 'B']
+         unpacked_bit = '[1:0]'
+    """
     decrarements = []
     packed_bit = []
     unpacked_bit = []
@@ -217,6 +246,9 @@ def separate_in_bracket(line):
             tuple(unpacked_bit), tuple(var_names))
 
 def delete_comments(read_file_name, write_file_name):
+    """ [Functions]
+       delete char after '//' and from '/*' to '*/'
+    """
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
         block_comment_flag = False
@@ -267,27 +299,45 @@ def expand_enum(read_file_name, write_file_name):
             else:
                 write_file.write(line)
 
-def make_module_info(read_file_name, write_file_name):
-    #TODO imple
-    write_file = open(write_file_name, 'w')
-    in_module = False
-    dec_line = False
+def make_module_info(read_file_name):
+    #TODO imple parameterized module
     with open(read_file_name, 'r') as f:
+        in_module = False
+        dec_line = False
         for line in f:
             if 'module' in line.split():
-                module_name = line.split()[1].split('(')
+                module_name = line.replace('(', ' ').split()[1]
                 new_module = module_info(module_name)
-                dec_line = ';' in line
+                dec_line = True
             if dec_line:
                 new_module.dec_lines.append(line)
                 if ';' in line:
                     dec_line = False
-                    new_module.readfirtsline()
-            elif in_module:
-                module_info.readline(line)
-            elif 'endmodule':
+                    new_module.readfirstline()
+                    in_module = True
+            elif re.match('endmodule', line):
                 in_module = False
-                print(module_info.tostr())
+                mdb = module_data_base()
+                mdb.set_module(new_module.name, new_module)
+                if debug:
+                    print(new_module.tostr())
+            elif in_module:
+                new_module.readline(line)
+
+class module_data_base(object):
+    """ [CLASSES]
+        Singleton class for manage terminals for module data base.
+    """
+    _singleton = None
+    def __new__(cls, *argc, **argv):
+        if cls._singleton == None:
+            cls._singleton = object.__new__(cls)
+            cls.module_dict = {}
+        return cls._singleton
+
+    def set_module(cls, module_name, module_info):
+        assert not module_name in cls.module_dict.keys()
+        cls.module_dict[module_name] = module_info
 
 class module_info(object):
     def __init__(self, name):
@@ -297,7 +347,7 @@ class module_info(object):
         self.output = []
         self.inout = []
 
-    def readfirtsline(self):
+    def readfirstline(self):
         """[FUNCTIONS]
         ex.
         module COMPARE(output GT, output LE, output EQ,
@@ -305,27 +355,31 @@ class module_info(object):
         """
         first_line = " ".join(self.dec_lines)
         first_line = re.sub("\[.+?\]", " ", first_line)
-        in_bracket = re.findall("\(.+?\)", first_line)[0]
-        words = in_bracket.split(',')
-        for i, word in enumerate(words):
-            if word == 'input':
-                self.input.append(words[i + 1])
-            elif word == 'output':
-                self.output.append(words[i + 1])
-            if word == 'inout':
-                self.inout.append(words[i + 1])
+        in_bracket = re.findall("\(.+?\)", first_line)[0][1:-1]
+        decs = in_bracket.split(',')
+        #words[-1] :exclude type definition
+        for dec in decs:
+            words = dec.split()
+            if words[0] == 'input':
+                self.input.append(words[-1])
+            elif words[0] == 'output':
+                self.output.append(words[-1])
+            if words[0] == 'inout':
+                self.inout.append(words[-1])
 
     def readline(self, line):
         """[FUNCTIONS]
         ex.
         module COMPARE(GT, LE, EQ, A, B, C);
-        縲縲output GT, LE, EQ;
-        縲縲input [1: width_A] A, B;
-        縲縲input [1: width_B] C;
+            output GT, LE, EQ;
+            input [1: width_A] A, B;
+            input [1: width_B] C;
         """
         #line = line.replace('(', ' ')
         #line = line.replace(')', ' ')
         line = re.sub("\[.+?\]", " ", line)
+        line = line.replace(';', ' ;')
+        line = line.replace(',', ' ')
         in_input_port = False
         in_output_port = False
         in_inout_port = False
@@ -339,19 +393,20 @@ class module_info(object):
             elif word == 'inout':
                 assert(not(in_input_port) and not(in_output_port) and not(in_inout_port))
                 in_inout_port = True
+            elif word == ';':
+                in_input_port = False
+                in_output_port = False
+                in_inout_port = False
             elif in_input_port:
                 self.input.append(word)
             elif in_output_port:
                 self.output.append(word)
             elif in_inout_port:
                 self.inout.append(word)
-            elif word == ';':
-                in_input_port = False
-                in_output_port = False
-                in_inout_port = False
+
 
     def tostr(self):
-        return self.name + 'input' + str(self.input) + 'output' + str(self.output) + 'inout'+ str(self.inout)
+        return self.name + '\ninput:' + str(self.input) + '\noutput:' + str(self.output) + '\ninout:'+ str(self.inout)
 
 if __name__ == '__main__':
     convert2sv(["test.sv",])

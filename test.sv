@@ -30,5 +30,5 @@ module TOP(CLK, RST, WRITE, READ, ADDR, WRITE_DATA, READ_DATA);
 endmodule
 
 
-module
+module SUB2(input CLK,input RST,input IN, output OUT);
 endmodule
