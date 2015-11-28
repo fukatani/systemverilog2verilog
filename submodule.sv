@@ -3,6 +3,8 @@ module TOP(CLK, RST, IN, IN2, reg1, OUT);
   reg reg1,reg2,reg3;
   output reg1,OUT;
   wire in1;
+  logic OUT;
+  logic IN,IN2;
 
   always @(posedge CLK or negedge RST) begin
     if(RST) begin
@@ -24,11 +26,11 @@ module TOP(CLK, RST, IN, IN2, reg1, OUT);
   SUB2 ccc(CLK,RST,in1);
 
   function func1;
-    input bit;
-      if(bit)
-          func1 = !bit;
+    input bit1;
+      if(bit1)
+          func1 = !bit1;
       else
-          func1 = bit;
+          func1 = bit1;
   endfunction
 
 endmodule
@@ -37,6 +39,7 @@ module SUB(CLK,RST,IN, OUT);
   input CLK, RST, IN;
   output OUT;
   reg reg1;
+  logic IN;
   wire OUT = reg1;
 
   always @(posedge CLK or negedge RST) begin
@@ -51,7 +54,7 @@ endmodule
 
 module SUB2(input CLK,input RST,input IN, output OUT);
   reg reg1;
-  assign OUT = reg1;
+  logic IN;
 
   always @(posedge CLK or negedge RST) begin
     if(RST) begin

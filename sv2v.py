@@ -48,6 +48,7 @@ def convert2sv(filelist=None, is_testing=False):
             for line_num, line in enumerate(read_file):
                 write_file.write(line)
                 if line.split() and line.split()[0] == 'module':
+                    module_name = get_module_name_from_line(line)
                     line = next(read_file) #skip module declarement
                     module_lines = []
                     while not line.split() or line.split()[0] != 'endmodule':
@@ -58,7 +59,7 @@ def convert2sv(filelist=None, is_testing=False):
                         while sj.judge_line(module_lines[0]):
                             module_lines = module_lines[1:]
                             line_num += 1
-                        module_lines[0] = convert_for_logic(module_lines[0], module_lines)
+                        module_lines[0] = convert_for_logic(module_lines[0], module_lines, module_name)
                         write_file.write(replace_in_line(module_lines[0]))
                         module_lines = module_lines[1:]
                     write_file.write(line) #write endmodule
@@ -66,9 +67,15 @@ def convert2sv(filelist=None, is_testing=False):
         except (StopIteration, Endmodule_exception):
             print('Error!! Irregular description around line ' + str(skip_start_line_num))
 
+        read_file.close()
+        write_file.close()
+
+    if is_testing:
+        return module_data_base().module_dict
+
 class Endmodule_exception(Exception): pass
 
-def convert_for_logic(line, module_lines):
+def convert_for_logic(line, module_lines, module_name):
     logic_convert_dict = {'logic': 'reg', 'bit': 'reg', 'byte': 'reg [7:0]'}
     wire_convert_dict = {'logic': 'wire', 'bit': 'wire', 'byte': 'wire [7:0]'}
     wire_flag = False
@@ -84,9 +91,13 @@ def convert_for_logic(line, module_lines):
             var_name = words[1]
         for templine in module_lines:
             #TODO reflect port information
-            #TODO input module name
-            mdb = module_data_base()
             if 'assign' in templine and var_name in templine[0:templine.find('=')]:
+                wire_flag = True
+                break
+            elif var_name in module_data_base().module_dict[module_name].input:
+                wire_flag = True
+                break
+            elif var_name in module_data_base().module_dict[module_name].inout:
                 wire_flag = True
                 break
 
@@ -197,6 +208,7 @@ def split_logic_decrarement(read_file_name, write_file_name):
                     write_file.write(' '.join(decrarements + unpacked_bit + (var,) + packed_bit) + ';\n')
             else:
                 write_file.write(line)
+    write_file.close()
 
 def separate_in_bracket(line):
     """ [Functions]
@@ -268,6 +280,7 @@ def delete_comments(read_file_name, write_file_name):
                     block_comment_flag = True
             else:
                 write_file.write(line)
+    write_file.close()
 
 def expand_enum(read_file_name, write_file_name):
     def get_enum_values(line):
@@ -298,16 +311,15 @@ def expand_enum(read_file_name, write_file_name):
                     write_file.write(" ".join(('localparam', val, "= 'd", str(num), ';')))
             else:
                 write_file.write(line)
+    write_file.close()
 
 def make_module_info(read_file_name):
-    #TODO imple parameterized module
     with open(read_file_name, 'r') as f:
         in_module = False
         dec_line = False
         for line in f:
             if 'module' in line.split():
-                module_name = line.replace('(', ' ').split()[1]
-                new_module = module_info(module_name)
+                new_module = module_info()
                 dec_line = True
             if dec_line:
                 new_module.dec_lines.append(line)
@@ -330,18 +342,24 @@ class module_data_base(object):
     """
     _singleton = None
     def __new__(cls, *argc, **argv):
-        if cls._singleton == None:
+        if cls._singleton is None:
             cls._singleton = object.__new__(cls)
             cls.module_dict = {}
         return cls._singleton
 
-    def set_module(cls, module_name, module_info):
-        assert not module_name in cls.module_dict.keys()
-        cls.module_dict[module_name] = module_info
+    def set_module(self, module_name, module_info):
+##        if self.module_dict is None:
+##            self.module_dict = {}
+        assert not module_name in self.module_dict.keys()
+        self.module_dict[module_name] = module_info
+
+    def flash(self):
+        self.module_dict = {}
+        self._singleton = None
 
 class module_info(object):
-    def __init__(self, name):
-        self.name = name
+    def __init__(self):
+        self.name = ''
         self.dec_lines = []
         self.input = []
         self.output = []
@@ -354,6 +372,9 @@ class module_info(object):
                        input [1:0] A, input [1:0] B, input C);
         """
         first_line = " ".join(self.dec_lines)
+        first_line = first_line.replace('\n', ' ')
+        self.name = get_module_name_from_line(first_line)
+        first_line = re.sub("#\(.+?\)", " ", first_line)
         first_line = re.sub("\[.+?\]", " ", first_line)
         in_bracket = re.findall("\(.+?\)", first_line)[0][1:-1]
         decs = in_bracket.split(',')
@@ -408,5 +429,10 @@ class module_info(object):
     def tostr(self):
         return self.name + '\ninput:' + str(self.input) + '\noutput:' + str(self.output) + '\ninout:'+ str(self.inout)
 
+def get_module_name_from_line(line):
+    line = re.sub("#\(.+?\)", " ", line) #remove parameter description
+    return line.replace('(', ' ').split()[1]
+
+
 if __name__ == '__main__':
-    convert2sv(["test.sv",])
+    convert2sv(["submodule.sv",])

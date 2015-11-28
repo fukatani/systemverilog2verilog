@@ -21,9 +21,34 @@ class TestSequenceFunctions(unittest.TestCase):
         pass
 
     def test_normal(self):
-        sv2v.convert2sv(["test.sv",], True)
+        sv2v.module_data_base().flash()
+        module_dict = sv2v.convert2sv(["test.sv",], True)
         filecmp.cmp('test_conv.v', 'test_conv_expect.v')
+        self.assertEqual(sorted(module_dict['TOP'].input, key = lambda x:x),
+                        ['ADDR', 'CLK', 'READ', 'RST', 'WRITE', 'WRITE_DATA'])
+        self.assertEqual(sorted(module_dict['TOP'].output, key = lambda x:x),
+                        ['READ_DATA'])
+        self.assertEqual(sorted(module_dict['SUB2'].input, key = lambda x:x),
+                        ['CLK', 'IN', 'RST'])
+        self.assertEqual(sorted(module_dict['SUB2'].output, key = lambda x:x),
+                        ['OUT'])
 
+    def test_submodule(self):
+        sv2v.module_data_base().flash()
+        module_dict = sv2v.convert2sv(["submodule.sv",], True)
+        filecmp.cmp('submodule_conv.v', 'submodule_conv_expect.v')
+
+    def tearDown(self):
+        for (root, dirs, files) in os.walk(u'.'):
+            for file in files:
+                if '_comdel.v' in file:
+                    os.remove(u'./' + file)
+                elif '_eexpand.v' in file:
+                    os.remove(u'./' + file)
+                elif '_split.v' in file:
+                    os.remove(u'./' + file)
+                elif '_conv.v' in file:
+                    os.remove(u'./' + file)
 
 if __name__ == '__main__':
     unittest.main()
