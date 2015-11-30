@@ -95,7 +95,9 @@ def convert_for_logic(line, module_lines, module_name):
             var_name = words[2]
         else:
             var_name = words[1]
+
         for templine in module_lines:
+            ml_words = set(templine.replace('(', ' ').split())
             if 'assign' in templine and var_name in templine[0:templine.find('=')]:
                 wire_flag = True
                 break
@@ -105,6 +107,12 @@ def convert_for_logic(line, module_lines, module_name):
             elif var_name in module_data_base().module_dict[module_name].inout:
                 wire_flag = True
                 break
+            elif ml_words.intersection(module_data_base().module_dict.keys()):
+                if var_name in templine:
+                    print('assigned')
+                elif '*' in templine:
+                    print('assigned')
+                #TODO other module
 
         if wire_flag:
             line = line.replace(words[0], wire_convert_dict[words[0]])
@@ -240,7 +248,8 @@ def separate_in_bracket(line):
     unpacked_bit = []
     var_names = []
 
-    line = line.replace(',', '')
+    line = line.replace(',', ' ')
+    #line = line.replace(',', '')
     line = line.replace(';', '')
     line = line.replace('[', ' [')
     line = line.replace(']', '] ')
@@ -353,9 +362,8 @@ def make_module_info(read_file_name):
                 new_module.readline(line)
 
 def convert_logic_in_fl(first_line):
-    #TODO use regexp
-    first_line = first_line.replace('input logic ', 'input wire ')
-    first_line = first_line.replace('inout logic ', 'input wire ')
+    first_line = re.sub('input +logic +', 'input wire ', first_line)
+    first_line = re.sub('inout +logic +', 'input wire ', first_line)
     return first_line
 
 class module_data_base(object):
@@ -455,4 +463,4 @@ def get_module_name_from_line(line):
     return line.replace('(', ' ').split()[1]
 
 if __name__ == '__main__':
-    convert2sv(["submodule2.sv",])
+    convert2sv(["submodule.sv",])

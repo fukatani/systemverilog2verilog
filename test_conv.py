@@ -22,8 +22,8 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_normal(self):
         sv2v.module_data_base().flash()
-        module_dict = sv2v.convert2sv(["test.sv",], True)
-        filecmp.cmp('test_conv.v', 'test_conv_expect.v')
+        module_dict = sv2v.convert2sv(["norm_test.sv",], True)
+        self.assertTrue(filecmp.cmp('norm_test_conv.v', 'norm_test_conv_expect.v'))
         self.assertEqual(sorted(module_dict['TOP'].input, key = lambda x:x),
                         ['ADDR', 'CLK', 'READ', 'RST', 'WRITE', 'WRITE_DATA'])
         self.assertEqual(sorted(module_dict['TOP'].output, key = lambda x:x),
@@ -36,12 +36,12 @@ class TestSequenceFunctions(unittest.TestCase):
     def test_submodule(self):
         sv2v.module_data_base().flash()
         module_dict = sv2v.convert2sv(["submodule.sv",], True)
-        filecmp.cmp('submodule_conv.v', 'submodule_conv_expect.v')
+        self.assertTrue(filecmp.cmp('submodule_conv.v', 'submodule_conv_expect.v'))
 
     def test_submodule2(self):
         sv2v.module_data_base().flash()
         module_dict = sv2v.convert2sv(["submodule2.sv",], True)
-        filecmp.cmp('submodule2_conv.v', 'submodule2_conv_expect.v')
+        self.assertTrue(filecmp.cmp('submodule2_conv.v', 'submodule2_conv_expect.v'))
 
     def tearDown(self):
         for (root, dirs, files) in os.walk(u'.'):
@@ -52,8 +52,8 @@ class TestSequenceFunctions(unittest.TestCase):
                     os.remove(u'./' + file)
                 elif '_split.v' in file:
                     os.remove(u'./' + file)
-                elif '_conv.v' in file:
-                    os.remove(u'./' + file)
+##                elif '_conv.v' in file:
+##                    os.remove(u'./' + file)
 
 if __name__ == '__main__':
     unittest.main()
