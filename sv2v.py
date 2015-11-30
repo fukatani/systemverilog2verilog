@@ -46,10 +46,16 @@ def convert2sv(filelist=None, is_testing=False):
 
         try:
             for line_num, line in enumerate(read_file):
-                write_file.write(line)
                 if line.split() and line.split()[0] == 'module':
                     module_name = get_module_name_from_line(line)
-                    line = next(read_file) #skip module declarement
+                    while ';' not in line:
+                        line = convert_logic_in_fl(line)
+                        write_file.write(line)
+                        line = next(read_file) #skip module declarement
+                    line = convert_logic_in_fl(line)
+                    write_file.write(line)
+                    line = next(read_file)
+
                     module_lines = []
                     while not line.split() or line.split()[0] != 'endmodule':
                         module_lines.append(line)
@@ -62,7 +68,7 @@ def convert2sv(filelist=None, is_testing=False):
                         module_lines[0] = convert_for_logic(module_lines[0], module_lines, module_name)
                         write_file.write(replace_in_line(module_lines[0]))
                         module_lines = module_lines[1:]
-                    write_file.write(line) #write endmodule
+                write_file.write(line)
 
         except (StopIteration, Endmodule_exception):
             print('Error!! Irregular description around line ' + str(skip_start_line_num))
@@ -90,7 +96,6 @@ def convert_for_logic(line, module_lines, module_name):
         else:
             var_name = words[1]
         for templine in module_lines:
-            #TODO reflect port information
             if 'assign' in templine and var_name in templine[0:templine.find('=')]:
                 wire_flag = True
                 break
@@ -195,14 +200,25 @@ def split_logic_decrarement(read_file_name, write_file_name):
        logic A;
        logic B;
     """
+
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
+        in_module = False
+        dec_line = False
         for line in f:
             words = line.replace(',', '').split()
             if not words:
                 write_file.write(line)
                 continue
-            if set(['logic', 'bit', 'byte']).intersection(words) and ',' in line:
+            if 'module' in line.split():
+                new_module = module_info()
+                dec_line = True
+            if dec_line:
+                write_file.write(line)
+                if ';' in line:
+                    dec_line = False
+                    in_module = True
+            elif set(['logic', 'bit', 'byte']).intersection(words) and ',' in line:
                 decrarements, packed_bit, unpacked_bit, var_names = separate_in_bracket(line)
                 for var in var_names:
                     write_file.write(' '.join(decrarements + unpacked_bit + (var,) + packed_bit) + ';\n')
@@ -336,6 +352,12 @@ def make_module_info(read_file_name):
             elif in_module:
                 new_module.readline(line)
 
+def convert_logic_in_fl(first_line):
+    #TODO use regexp
+    first_line = first_line.replace('input logic ', 'input wire ')
+    first_line = first_line.replace('inout logic ', 'input wire ')
+    return first_line
+
 class module_data_base(object):
     """ [CLASSES]
         Singleton class for manage terminals for module data base.
@@ -425,7 +447,6 @@ class module_info(object):
             elif in_inout_port:
                 self.inout.append(word)
 
-
     def tostr(self):
         return self.name + '\ninput:' + str(self.input) + '\noutput:' + str(self.output) + '\ninout:'+ str(self.inout)
 
@@ -433,6 +454,5 @@ def get_module_name_from_line(line):
     line = re.sub("#\(.+?\)", " ", line) #remove parameter description
     return line.replace('(', ' ').split()[1]
 
-
 if __name__ == '__main__':
-    convert2sv(["submodule.sv",])
+    convert2sv(["submodule2.sv",])
