@@ -478,4 +478,4 @@ def get_module_name_from_line(line):
 
 if __name__ == '__main__':
     #convert2sv(["submodule.sv",])
-    convert2sv(["norm_test.sv",])
+    convert2sv(["../test/norm_test.sv",])
