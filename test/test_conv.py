@@ -43,6 +43,11 @@ class TestSequenceFunctions(unittest.TestCase):
         module_dict = convert2sv(["submodule2.sv",], True)
         self.assertTrue(filecmp.cmp('submodule2_conv.v', 'submodule2_conv_expect.v'))
 
+    def test_submodule3(self):
+        module_data_base().flash()
+        module_dict = convert2sv(["name_and_order_assign.sv",], True)
+        self.assertTrue(filecmp.cmp('name_and_order_assign_conv.v', 'name_and_order_assign_conv_expect.v'))
+
     def tearDown(self):
         for (root, dirs, files) in os.walk(u'.'):
             for file in files:

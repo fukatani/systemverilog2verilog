@@ -83,6 +83,15 @@ def convert2sv(filelist=None, is_testing=False):
 
 class Endmodule_exception(Exception): pass
 
+def get_in_bracket_signals(line):
+    in_bracket_signals = []
+    words = line.replace(';', '').split(')')
+    for word in words:
+        in_bracket = word[word.rfind('(') + 1:].strip()
+        if in_bracket:
+            in_bracket_signals.append(word[word.rfind('(') + 1:].strip())
+    return in_bracket_signals
+
 def convert_for_logic(line, module_lines, module_name):
     logic_convert_dict = {'logic': 'reg', 'bit': 'reg', 'byte': 'reg [7:0]'}
     wire_convert_dict = {'logic': 'wire', 'bit': 'wire', 'byte': 'wire [7:0]'}
@@ -110,32 +119,44 @@ def convert_for_logic(line, module_lines, module_name):
                 wire_flag = True
                 break
             elif ml_words.intersection(module_data_base().module_dict.keys()):
-                #TODO other module
                 assigned_module = tuple(ml_words.intersection(module_data_base().module_dict.keys()))[0]
                 dec_lines = []
                 j = 0
                 while ';' not in module_lines[i+j]:
                     dec_lines.append(module_lines[i+j])
+                    j += 1
                 dec_lines.append(module_lines[i+j])#add last line
                 dec_line = ' '.join(dec_lines).replace('\n', ' ')
                 if '*' in dec_line: #assigned by wild card or not
-                    wire_flag = (var_name in module_data_base().module_dict[assigned_module].input or
-                                 var_name in module_data_base().module_dict[assigned_module].inout)
-                    print('wild card')
-                elif var_name in dec_line:
-                    if '.' in dec_line: #assigned by port name
-                        print('name assigned')
-                    else: #assigned by order name
-                        print('order')
-                        assigned_vars = util.clip_in_blacket(dec_line).replace(" ","").split(',')
-                        for i, assigned_var in enumerate(assigned_vars):
-                            if assigned_var == var_name:
-                                break
+                    if var_name in module_data_base().module_dict[assigned_module].output:
+                        wire_flag = True
+                elif '.' in dec_line:
+                    if var_name in get_in_bracket_signals(dec_line):
+                        #assigned by port name
+                        #  SUB sub(.CLK(CLK),.RST(RST),.IN(in1),.OUT1(OUT));
+                        # .Port_name(Signal_name)
+                        dec_line = util.clip_in_blacket(dec_line)
+                        dec_line = dec_line.replace('.','')
+                        assigned_ports = dec_line.split(',')
+                        for comb in assigned_ports:
+                            signal = util.clip_in_blacket(comb)
+                            port = comb[0:comb.find('(')]
+                            #print(port + ': ' +signal)
+                            if signal == var_name:
+                                if port in module_data_base().module_dict[assigned_module].output:
+                                    wire_flag = True
+                                    break
                         else:
                             raise Exception("Unexpected exception.")
-                        print(i)
-
-                    #end
+                else: #assigned by order name
+                    assigned_vars = util.clip_in_blacket(dec_line).split(',')
+                    for i, assigned_var in enumerate(assigned_vars):
+                        if assigned_var.strip() == var_name:
+                            if module_data_base().module_dict[assigned_module].all_ports[i] == 'output':
+                                wire_flag = True
+                            break
+##                    else:
+##                        raise Exception("Unexpected exception.")
 
         if wire_flag:
             line = line.replace(words[0], wire_convert_dict[words[0]])
@@ -333,6 +354,7 @@ def expand_enum(read_file_name, write_file_name):
     def get_enum_values(line):
         line = util.clip_in_blacket(line, '{')
         line = line.replace(' ','')
+        line = line.replace('\t','')
 
         enum_dict = OrderedDict()
         i = 0
@@ -419,7 +441,7 @@ class module_info(object):
             self.inout.append(port_name)
         elif port_type == 'output':
             self.output.append(port_name)
-        self.all_ports.append(port_name)
+        self.all_ports.append(port_type)
 
     def readfirstline(self):
         """[FUNCTIONS]
@@ -430,6 +452,10 @@ class module_info(object):
         first_line = " ".join(self.dec_lines)
         first_line = first_line.replace('\n', ' ')
         self.name = get_module_name_from_line(first_line)
+
+        if ('input' not in first_line and 'inout' not in first_line
+            and 'output' not in first_line):
+                return
         first_line = re.sub("#\(.+?\)", " ", first_line)
         first_line = re.sub("\[.+?\]", " ", first_line)
         in_bracket = util.clip_in_blacket(first_line)
@@ -484,5 +510,5 @@ def get_module_name_from_line(line):
     return line.replace('(', ' ').split()[1]
 
 if __name__ == '__main__':
-    convert2sv(["../test/submodule.sv",])
+    convert2sv(["../test/name_and_order_assign.sv",])
     #convert2sv(["../test/norm_test.sv",])

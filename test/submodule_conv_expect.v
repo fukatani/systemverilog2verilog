@@ -3,7 +3,7 @@ module TOP(CLK, RST, IN, IN2, reg1, OUT);
   reg reg1,reg2,reg3;
   output reg1,OUT;
   wire in1;
-  reg OUT;
+  wire OUT;
 wire IN;
 wire IN2;
 

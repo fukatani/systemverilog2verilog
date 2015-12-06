@@ -11,10 +11,22 @@
 
 import re
 
+##def clip_in_blacket_old(line, bracket='('):
+##    if bracket == '(':
+##        return re.findall("\(.+?\)", line)[0][1:-1]
+##    elif bracket == '[':
+##        return re.findall("\[.+?\]", line)[0][1:-1]
+##    elif bracket == '{':
+##        return re.findall("\{.+?\}", line)[0][1:-1]
+
 def clip_in_blacket(line, bracket='('):
+    """ [Functions]
+        get sentence in most outer bracket.
+    """
     if bracket == '(':
-        return re.findall("\(.+?\)", line)[0][1:-1]
+        return line[line.find('(') + 1: line.rfind(')')]
     elif bracket == '[':
-        return re.findall("\[.+?\]", line)[0][1:-1]
+        return line[line.find('[') + 1: line.rfind(']')]
     elif bracket == '{':
-        return re.findall("\{.+?\}", line)[0][1:-1]
+        return line[line.find('{') + 1: line.rfind('}')]
+    #\(.*\)/邵ｲ繝ｻ\([^)]*\)
