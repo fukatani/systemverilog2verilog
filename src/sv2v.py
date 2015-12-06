@@ -119,14 +119,22 @@ def convert_for_logic(line, module_lines, module_name):
                 dec_lines.append(module_lines[i+j])#add last line
                 dec_line = ' '.join(dec_lines).replace('\n', ' ')
                 if '*' in dec_line: #assigned by wild card or not
-                    wire_flag = (module_data_base().module_dict[assigned_module].input or
-                                 module_data_base().module_dict[module_name].inout)
+                    wire_flag = (var_name in module_data_base().module_dict[assigned_module].input or
+                                 var_name in module_data_base().module_dict[assigned_module].inout)
                     print('wild card')
                 elif var_name in dec_line:
                     if '.' in dec_line: #assigned by port name
                         print('name assigned')
                     else: #assigned by order name
                         print('order')
+                        assigned_vars = util.clip_in_blacket(dec_line).replace(" ","").split(',')
+                        for i, assigned_var in enumerate(assigned_vars):
+                            if assigned_var == var_name:
+                                break
+                        else:
+                            raise Exception("Unexpected exception.")
+                        print(i)
+
                     #end
 
         if wire_flag:
@@ -264,7 +272,6 @@ def separate_in_bracket(line):
     var_names = []
 
     line = line.replace(',', ' ')
-    #line = line.replace(',', '')
     line = line.replace(';', '')
     line = line.replace('[', ' [')
     line = line.replace(']', '] ')
@@ -324,13 +331,7 @@ def delete_comments(read_file_name, write_file_name):
 
 def expand_enum(read_file_name, write_file_name):
     def get_enum_values(line):
-        rb_pos = line.find('{')
-        lb_pos = line.find('}')
-
-        if rb_pos == -1 or lb_pos == -1:
-            raise Exception('Illegal enumerate.')
-
-        line = line[rb_pos+1:lb_pos]
+        line = util.clip_in_blacket(line, '{')
         line = line.replace(' ','')
 
         enum_dict = OrderedDict()
@@ -409,6 +410,16 @@ class module_info(object):
         self.input = []
         self.output = []
         self.inout = []
+        self.all_ports = []
+
+    def _add_port(self, port_name, port_type):
+        if port_type == 'input':
+            self.input.append(port_name)
+        elif port_type == 'inout':
+            self.inout.append(port_name)
+        elif port_type == 'output':
+            self.output.append(port_name)
+        self.all_ports.append(port_name)
 
     def readfirstline(self):
         """[FUNCTIONS]
@@ -426,12 +437,7 @@ class module_info(object):
         #words[-1] :exclude type definition
         for dec in decs:
             words = dec.split()
-            if words[0] == 'input':
-                self.input.append(words[-1])
-            elif words[0] == 'output':
-                self.output.append(words[-1])
-            if words[0] == 'inout':
-                self.inout.append(words[-1])
+            self._add_port(words[-1], words[0])
 
     def readline(self, line):
         """[FUNCTIONS]
@@ -464,11 +470,11 @@ class module_info(object):
                 in_output_port = False
                 in_inout_port = False
             elif in_input_port:
-                self.input.append(word)
+                self._add_port(word, 'input')
             elif in_output_port:
-                self.output.append(word)
+                self._add_port(word, 'output')
             elif in_inout_port:
-                self.inout.append(word)
+                self._add_port(word, 'inout')
 
     def tostr(self):
         return self.name + '\ninput:' + str(self.input) + '\noutput:' + str(self.output) + '\ninout:'+ str(self.inout)
@@ -478,5 +484,5 @@ def get_module_name_from_line(line):
     return line.replace('(', ' ').split()[1]
 
 if __name__ == '__main__':
-    #convert2sv(["submodule.sv",])
-    convert2sv(["../test/norm_test.sv",])
+    convert2sv(["../test/submodule.sv",])
+    #convert2sv(["../test/norm_test.sv",])
