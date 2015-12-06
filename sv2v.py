@@ -13,6 +13,7 @@ from optparse import OptionParser
 import os
 import copy
 import re
+from collections import OrderedDict
 
 debug = True
 
@@ -96,7 +97,7 @@ def convert_for_logic(line, module_lines, module_name):
         else:
             var_name = words[1]
 
-        for templine in module_lines:
+        for i, templine in enumerate(module_lines):
             ml_words = set(templine.replace('(', ' ').split())
             if 'assign' in templine and var_name in templine[0:templine.find('=')]:
                 wire_flag = True
@@ -108,11 +109,24 @@ def convert_for_logic(line, module_lines, module_name):
                 wire_flag = True
                 break
             elif ml_words.intersection(module_data_base().module_dict.keys()):
-                if var_name in templine:
-                    print('assigned')
-                elif '*' in templine:
-                    print('assigned')
                 #TODO other module
+                assigned_module = tuple(ml_words.intersection(module_data_base().module_dict.keys()))[0]
+                dec_lines = []
+                j = 0
+                while ';' not in module_lines[i+j]:
+                    dec_lines.append(module_lines[i+j])
+                dec_lines.append(module_lines[i+j])#add last line
+                dec_line = ' '.join(dec_lines).replace('\n', ' ')
+                if '*' in dec_line: #assigned by wild card or not
+                    wire_flag = (module_data_base().module_dict[assigned_module].input or
+                                 module_data_base().module_dict[module_name].inout)
+                    print('wild card')
+                elif var_name in dec_line:
+                    if '.' in dec_line: #assigned by port name
+                        print('name assigned')
+                    else: #assigned by order name
+                        print('order')
+                    #end
 
         if wire_flag:
             line = line.replace(words[0], wire_convert_dict[words[0]])
@@ -318,7 +332,7 @@ def expand_enum(read_file_name, write_file_name):
         line = line[rb_pos+1:lb_pos]
         line = line.replace(' ','')
 
-        enum_dict = {}
+        enum_dict = OrderedDict()
         i = 0
         for val in line.split(','):
             if '=' in val:
@@ -326,7 +340,7 @@ def expand_enum(read_file_name, write_file_name):
                 enum_dict[val[0:val.find('=')]] = i
             else:
                 enum_dict[val] = i
-                i += 1
+            i += 1
         return enum_dict
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
@@ -463,4 +477,5 @@ def get_module_name_from_line(line):
     return line.replace('(', ' ').split()[1]
 
 if __name__ == '__main__':
-    convert2sv(["submodule.sv",])
+    #convert2sv(["submodule.sv",])
+    convert2sv(["norm_test.sv",])
