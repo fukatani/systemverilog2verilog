@@ -42,6 +42,11 @@ def convert2sv(filelist=None, is_testing=False):
         expand_enum(comdel_file, enum_file_name)
         split_file_name = name_without_extension + '_split.v'
         split_logic_decrarement(enum_file_name, split_file_name)
+
+        make_signal_info(name_without_extension + '_conv.v')
+        #TODO
+        expand_dot_asterisk(name_without_extension + '_conv.v', 'dum.v')
+
         sj = skip_judge()
         read_file = open(split_file_name, 'r')
         write_file = open(name_without_extension + '_conv.v', 'w')
@@ -79,7 +84,7 @@ def convert2sv(filelist=None, is_testing=False):
         write_file.close()
 
     if is_testing:
-        return module_data_base().module_dict
+        return module_data_base().module_dict, module_data_base().reg_dict, module_data_base().wire_dict
 
 class Endmodule_exception(Exception): pass
 
@@ -399,6 +404,39 @@ def make_module_info(read_file_name):
             elif in_module:
                 new_module.readline(line)
 
+def make_signal_info(read_file_name):
+    with open(read_file_name, 'r') as f:
+        in_module = False
+        dec_line = False
+        for line in f:
+            if 'module' in line.split():
+                new_module = module_signal_info()
+                dec_line = True
+            if dec_line:
+                new_module.dec_lines.append(line)
+                if ';' in line:
+                    dec_line = False
+                    new_module.readfirstline()
+                    in_module = True
+            elif re.match('endmodule', line):
+                in_module = False
+                mdb = module_data_base()
+                mdb.set_signal_dict(new_module.name, new_module)
+                if debug:
+                    print(new_module.tostr())
+            elif in_module:
+                new_module.readline(line)
+
+def expand_dot_asterisk(read_file_name, write_file_name):
+    """ [Functions]
+       OUT(.*) -> OUT(.SIG1(SIG1),.SIG2(SIG2))
+    """
+    #TODO after implemented get_signals
+    write_file = open(write_file_name, 'w')
+    with open(read_file_name, 'r') as f:
+        pass
+    write_file.close()
+
 def convert_logic_in_fl(first_line):
     first_line = re.sub('input +logic +', 'input wire ', first_line)
     first_line = re.sub('inout +logic +', 'input wire ', first_line)
@@ -413,13 +451,17 @@ class module_data_base(object):
         if cls._singleton is None:
             cls._singleton = object.__new__(cls)
             cls.module_dict = {}
+            cls.reg_dict = {}
+            cls.wire_dict = {}
         return cls._singleton
 
     def set_module(self, module_name, module_info):
-##        if self.module_dict is None:
-##            self.module_dict = {}
         assert not module_name in self.module_dict.keys()
         self.module_dict[module_name] = module_info
+
+    def set_signal_dict(self, module_name, signal_info):
+        self.wire_dict[module_name] = signal_info.wire
+        self.reg_dict[module_name] = signal_info.reg
 
     def flash(self):
         self.module_dict = {}
@@ -504,6 +546,50 @@ class module_info(object):
 
     def tostr(self):
         return self.name + '\ninput:' + str(self.input) + '\noutput:' + str(self.output) + '\ninout:'+ str(self.inout)
+
+
+class module_signal_info(object):
+    def __init__(self):
+        self.name = ''
+        self.dec_lines = []
+        self.reg = []
+        self.wire = []
+
+    def _add_signal(self, signal_names, signal_type):
+        if signal_type == 'reg':
+            self.reg += signal_names
+        elif signal_type == 'wire':
+            self.wire += signal_names
+
+    def readfirstline(self):
+        """[FUNCTIONS]
+        ex.
+        module COMPARE(output GT, output LE, output EQ,
+                       input [1:0] A, input [1:0] B, input C);
+        """
+        first_line = " ".join(self.dec_lines)
+        first_line = first_line.replace('\n', ' ')
+        self.name = get_module_name_from_line(first_line)
+
+    def readline(self, line):
+        """[FUNCTIONS]
+        ex.
+        module COMPARE(GT, LE, EQ, A, B, C);
+            output GT, LE, EQ;
+            input [1: width_A] A, B;
+            input [1: width_B] C;
+        """
+        #line = line.replace('(', ' ')
+        #line = line.replace(')', ' ')
+        line = re.sub("\[.+?\]", " ", line)
+        line = line.replace(';', '')
+        line = line.replace(',', ' ')
+        for i, word in enumerate(line.split()):
+            if word == 'reg' or word == 'wire':
+                self._add_signal(line.split()[i + 1:], word)
+
+    def tostr(self):
+        return self.name + '\nreg:' + str(self.reg) + '\nwire:' + str(self.wire)
 
 def get_module_name_from_line(line):
     line = re.sub("#\(.+?\)", " ", line) #remove parameter description

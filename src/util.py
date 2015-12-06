@@ -29,4 +29,3 @@ def clip_in_blacket(line, bracket='('):
         return line[line.find('[') + 1: line.rfind(']')]
     elif bracket == '{':
         return line[line.find('{') + 1: line.rfind('}')]
-    #\(.*\)/邵ｲ繝ｻ\([^)]*\)
