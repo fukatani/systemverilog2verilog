@@ -13,6 +13,7 @@ from optparse import OptionParser
 import os
 import copy
 import re
+from systemverilog2verilog.src import util
 from collections import OrderedDict
 
 debug = True
@@ -420,7 +421,7 @@ class module_info(object):
         self.name = get_module_name_from_line(first_line)
         first_line = re.sub("#\(.+?\)", " ", first_line)
         first_line = re.sub("\[.+?\]", " ", first_line)
-        in_bracket = re.findall("\(.+?\)", first_line)[0][1:-1]
+        in_bracket = util.clip_in_blacket(first_line)
         decs = in_bracket.split(',')
         #words[-1] :exclude type definition
         for dec in decs:
