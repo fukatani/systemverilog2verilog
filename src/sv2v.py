@@ -113,7 +113,6 @@ def convert_for_logic(line, module_lines, module_name):
             var_name = words[1]
 
         for i, templine in enumerate(module_lines):
-            ml_words = set(templine.replace('(', ' ').split())
             if 'assign' in templine and var_name in templine[0:templine.find('=')]:
                 wire_flag = True
                 break
@@ -123,8 +122,8 @@ def convert_for_logic(line, module_lines, module_name):
             elif var_name in module_data_base().module_dict[module_name].inout:
                 wire_flag = True
                 break
-            elif ml_words.intersection(module_data_base().module_dict.keys()):
-                assigned_module = tuple(ml_words.intersection(module_data_base().module_dict.keys()))[0]
+            elif get_mod_instance(templine):
+                assigned_module = get_mod_instance(templine)
                 dec_lines = []
                 j = 0
                 while ';' not in module_lines[i+j]:
@@ -431,16 +430,32 @@ def expand_dot_asterisk(read_file_name, write_file_name):
     """ [Functions]
        OUT(.*) -> OUT(.SIG1(SIG1),.SIG2(SIG2))
     """
-    #TODO after implemented get_signals
     write_file = open(write_file_name, 'w')
     with open(read_file_name, 'r') as f:
-        pass
+        in_module = False
+        dec_line = False
+        for line in f:
+            if 'module' in line.split():
+                in_module = True
+            elif re.match('endmodule', line):
+                in_module = False
+            elif in_module:
+                if '.*' in line:
+                    #TODO after implemented get_signals
+                    pass
     write_file.close()
 
 def convert_logic_in_fl(first_line):
     first_line = re.sub('input +logic +', 'input wire ', first_line)
     first_line = re.sub('inout +logic +', 'input wire ', first_line)
     return first_line
+
+def get_mod_instance(line):
+    words = set(line.replace('(', ' ').split())
+    if words.intersection(module_data_base().module_dict.keys()):
+        return tuple(words.intersection(module_data_base().module_dict.keys()))[0]
+    else:
+        return None
 
 class module_data_base(object):
     """ [CLASSES]
