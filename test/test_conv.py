@@ -56,6 +56,12 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(wire_dict['SUB2'], ['IN'])
         self.assertEqual(set(wire_dict['TOP']), set(['in1', 'OUT', 'OUTOUT', 'IN', 'IN2']))
 
+    def test_eda(self):
+        module_data_base().flash()
+        module_data_base().flash()
+        convert2sv(["dot_asterisk.sv",], True)
+        self.assertTrue(filecmp.cmp('dot_asterisk_eda.v', 'dot_asterisk_eda_expect.v'))
+
     def tearDown(self):
         for (root, dirs, files) in os.walk(u'.'):
             for file in files:

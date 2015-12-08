@@ -22,7 +22,7 @@ module TOP(CLK, RST, IN, IN2, reg1, OUT);
     end
   end
 
-  SUB sub(.CLK(CLK),.RST(RST),.IN(in1),.OUT1(OUTOUT));
+  SUB suub(.CLK(CLK),.RST(RST),.IN(in1),.OUT1(OUTOUT));
   SUB2 sub2(CLK,RST, in1,
   	OUT);
 

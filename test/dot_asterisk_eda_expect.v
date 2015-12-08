@@ -4,7 +4,7 @@ module TOP(CLK, RST, IN, IN2, reg1, OUT);
   output reg1,OUT;
   wire in1;
 wire OUT;
-wire OUTOUT;
+reg OUTOUT;
 wire IN;
 wire IN2;
 
@@ -24,23 +24,13 @@ wire IN2;
     end
   end
 
-  SUB suub(.CLK(CLK),.RST(RST),.IN(in1),.OUT1(OUTOUT));
-  SUB2 sub2(CLK,RST, in1,
-  	OUT);
+  SUB sub(.IN(IN), .OUT(OUT));
 
 endmodule
 
-module SUB(CLK,RST,IN, OUT1);
+module SUB(CLK,RST,IN, OUT);
   input CLK, RST, IN;
-  output OUT1;
-  reg reg1;
-  wire IN;
-
-endmodule
-
-module SUB2(CLK,RST,IN, OUT2);
-  input CLK, RST, IN;
-  output OUT2;
+  output OUT;
   reg reg1;
   wire IN;
 

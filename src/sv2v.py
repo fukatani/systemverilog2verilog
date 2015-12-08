@@ -43,10 +43,6 @@ def convert2sv(filelist=None, is_testing=False):
         split_file_name = name_without_extension + '_split.v'
         split_logic_decrarement(enum_file_name, split_file_name)
 
-        make_signal_info(name_without_extension + '_conv.v')
-        #TODO
-        expand_dot_asterisk(name_without_extension + '_conv.v', 'dum.v')
-
         sj = skip_judge()
         read_file = open(split_file_name, 'r')
         write_file = open(name_without_extension + '_conv.v', 'w')
@@ -54,7 +50,7 @@ def convert2sv(filelist=None, is_testing=False):
         try:
             for line_num, line in enumerate(read_file):
                 if line.split() and line.split()[0] == 'module':
-                    module_name = get_module_name_from_line(line)
+                    module_name = get_module_name_from_decline(line)
                     while ';' not in line:
                         line = convert_logic_in_fl(line)
                         write_file.write(line)
@@ -82,6 +78,10 @@ def convert2sv(filelist=None, is_testing=False):
 
         read_file.close()
         write_file.close()
+
+        make_signal_info(name_without_extension + '_conv.v')
+        #TODO
+        expand_dot_asterisk(name_without_extension + '_conv.v', name_without_extension + '_eda.v')
 
     if is_testing:
         return module_data_base().module_dict, module_data_base().reg_dict, module_data_base().wire_dict
@@ -436,13 +436,21 @@ def expand_dot_asterisk(read_file_name, write_file_name):
         dec_line = False
         for line in f:
             if 'module' in line.split():
+                this_module = get_module_name_from_decline(line)
                 in_module = True
             elif re.match('endmodule', line):
                 in_module = False
             elif in_module:
                 if '.*' in line:
                     #TODO after implemented get_signals
-                    pass
+                    assined_module = get_module_name_from_insline(line)
+                    assined_module_info = module_data_base().module_dict[assined_module]
+                    ports = assined_module_info.input + assined_module_info.inout + assined_module_info.output
+                    signals = module_data_base().reg_dict[this_module] + module_data_base().wire_dict[this_module]
+                    decs = set(ports) & set(signals)
+                    dec_replace = ', '.join(['.' +dec + '(' + dec + ')' for dec in decs])
+                    line = line.replace('.*', dec_replace)
+            write_file.write(line)
     write_file.close()
 
 def convert_logic_in_fl(first_line):
@@ -508,7 +516,7 @@ class module_info(object):
         """
         first_line = " ".join(self.dec_lines)
         first_line = first_line.replace('\n', ' ')
-        self.name = get_module_name_from_line(first_line)
+        self.name = get_module_name_from_decline(first_line)
 
         if ('input' not in first_line and 'inout' not in first_line
             and 'output' not in first_line):
@@ -584,7 +592,7 @@ class module_signal_info(object):
         """
         first_line = " ".join(self.dec_lines)
         first_line = first_line.replace('\n', ' ')
-        self.name = get_module_name_from_line(first_line)
+        self.name = get_module_name_from_decline(first_line)
 
     def readline(self, line):
         """[FUNCTIONS]
@@ -606,10 +614,14 @@ class module_signal_info(object):
     def tostr(self):
         return self.name + '\nreg:' + str(self.reg) + '\nwire:' + str(self.wire)
 
-def get_module_name_from_line(line):
+def get_module_name_from_decline(line):
     line = re.sub("#\(.+?\)", " ", line) #remove parameter description
     return line.replace('(', ' ').split()[1]
 
+def get_module_name_from_insline(line):
+    line = re.sub("#\(.+?\)", " ", line) #remove parameter description
+    return line.replace('(', ' ').split()[0]
+
 if __name__ == '__main__':
-    convert2sv(["../test/name_and_order_assign.sv",])
-    #convert2sv(["../test/norm_test.sv",])
+    convert2sv(["../test/dot_asterisk.sv",])
+    #convert2sv(["../test/name_and_order_assign.sv",])

@@ -3,10 +3,8 @@ module TOP(CLK, RST, IN, IN2, reg1, OUT);
   reg reg1,reg2,reg3;
   output reg1,OUT;
   wire in1;
-wire OUT;
-wire OUTOUT;
-wire IN;
-wire IN2;
+  logic OUT,OUTOUT;
+  logic IN,IN2;
 
   always @(posedge CLK or negedge RST) begin
     if(RST) begin
@@ -24,25 +22,15 @@ wire IN2;
     end
   end
 
-  SUB suub(.CLK(CLK),.RST(RST),.IN(in1),.OUT1(OUTOUT));
-  SUB2 sub2(CLK,RST, in1,
-  	OUT);
+  SUB sub(.*);
 
 endmodule
 
-module SUB(CLK,RST,IN, OUT1);
+module SUB(CLK,RST,IN, OUT);
   input CLK, RST, IN;
-  output OUT1;
+  output OUT;
   reg reg1;
-  wire IN;
-
-endmodule
-
-module SUB2(CLK,RST,IN, OUT2);
-  input CLK, RST, IN;
-  output OUT2;
-  reg reg1;
-  wire IN;
+  logic IN;
 
 endmodule
 
