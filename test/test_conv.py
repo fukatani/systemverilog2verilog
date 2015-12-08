@@ -71,6 +71,8 @@ class TestSequenceFunctions(unittest.TestCase):
                     os.remove(u'./' + file)
                 elif '_split.v' in file:
                     os.remove(u'./' + file)
+                elif '_eda.v' in file:
+                    os.remove(u'./' + file)
 ##                elif '_conv.v' in file:
 ##                    os.remove(u'./' + file)
 

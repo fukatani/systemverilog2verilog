@@ -232,7 +232,9 @@ def replace_in_line(line):
     def replace_word(word):
         replace_dict = {'always_comb': 'always @*', 'always_latch': 'always @*',
                         'always_ff': 'always','int': 'integer', 'shortint': 'reg signed [15:0]',
-                        'longint': 'reg signed [63:0]', "'0": "'d0", "'1": "'hffff"}
+                        'longint': 'reg signed [63:0]', "'0": "'d0", "'1": "'hffff",
+                        'parameter logic': 'parameter', "localparam logic": "localparam",
+                        'function logic': 'function'}
         if word in replace_dict.keys():
             return replace_dict[word]
         else:
