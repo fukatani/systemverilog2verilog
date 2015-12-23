@@ -20,7 +20,9 @@ git clone https://github.com/fukatani/systemverilog2verilog.git
 
 Usage
 ==============================
-python sv2v.py *systemverilog-file-name*
+python sv2v.py *systemverilog-file-name.sv*
+
+You will get *systemverilog-file-name.v*.
 
 Features
 ==============================

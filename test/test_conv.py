@@ -63,16 +63,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(filecmp.cmp('dot_asterisk_eda.v', 'dot_asterisk_eda_expect.v'))
 
     def tearDown(self):
-        for (root, dirs, files) in os.walk(u'.'):
-            for file in files:
-                if '_comdel.v' in file:
-                    os.remove(u'./' + file)
-                elif '_eexpand.v' in file:
-                    os.remove(u'./' + file)
-                elif '_split.v' in file:
-                    os.remove(u'./' + file)
-                elif '_eda.v' in file:
-                    os.remove(u'./' + file)
+        clean_directory()
 ##                elif '_conv.v' in file:
 ##                    os.remove(u'./' + file)
 

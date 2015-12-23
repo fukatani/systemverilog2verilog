@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------------
-# Name:        module1
-# Purpose:
+# Name:        sv2v
+# Purpose:     Converting systemverilog code to verilog code.
 #
 # Author:      rf
 #
@@ -16,9 +16,9 @@ import re
 from systemverilog2verilog.src import util
 from collections import OrderedDict
 
-debug = True
 
-def convert2sv(filelist=None, is_testing=False):
+
+def convert2sv(filelist=None, is_testing=False, debug=False):
     optparser = OptionParser()
     (options, args) = optparser.parse_args()
     #TODO interface, struct, union
@@ -36,7 +36,7 @@ def convert2sv(filelist=None, is_testing=False):
         comdel_file = name_without_extension + '_comdel.v'
         delete_comments(file_name, comdel_file)
 
-        make_module_info(comdel_file)
+        make_module_info(comdel_file, debug)
 
         enum_file_name = name_without_extension + '_eexpand.v'
         expand_enum(comdel_file, enum_file_name)
@@ -79,9 +79,14 @@ def convert2sv(filelist=None, is_testing=False):
         read_file.close()
         write_file.close()
 
-        make_signal_info(name_without_extension + '_conv.v')
-        #TODO
+        make_signal_info(name_without_extension + '_conv.v', debug)
         expand_dot_asterisk(name_without_extension + '_conv.v', name_without_extension + '_eda.v')
+
+        if os.path.exists(name_without_extension + '.v'):
+            os.remove(name_without_extension + '.v')
+        if (not debug) and (not is_testing):
+            os.rename(name_without_extension + '_eda.v', name_without_extension + '.v')
+            clean_directory()
 
     if is_testing:
         return module_data_base().module_dict, module_data_base().reg_dict, module_data_base().wire_dict
@@ -382,7 +387,7 @@ def expand_enum(read_file_name, write_file_name):
                 write_file.write(line)
     write_file.close()
 
-def make_module_info(read_file_name):
+def make_module_info(read_file_name, debug=False):
     with open(read_file_name, 'r') as f:
         in_module = False
         dec_line = False
@@ -405,7 +410,7 @@ def make_module_info(read_file_name):
             elif in_module:
                 new_module.readline(line)
 
-def make_signal_info(read_file_name):
+def make_signal_info(read_file_name, debug):
     with open(read_file_name, 'r') as f:
         in_module = False
         dec_line = False
@@ -466,6 +471,18 @@ def get_mod_instance(line):
         return tuple(words.intersection(module_data_base().module_dict.keys()))[0]
     else:
         return None
+
+def clean_directory():
+    for (root, dirs, files) in os.walk(u'.'):
+        for file in files:
+            if '_comdel.v' in file:
+                os.remove(u'./' + file)
+            elif '_eexpand.v' in file:
+                os.remove(u'./' + file)
+            elif '_split.v' in file:
+                os.remove(u'./' + file)
+            elif '_eda.v' in file:
+                os.remove(u'./' + file)
 
 class module_data_base(object):
     """ [CLASSES]
