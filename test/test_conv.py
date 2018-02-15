@@ -1,20 +1,22 @@
 #-------------------------------------------------------------------------------
-# test_ra.py
+# test_conv.py
 #
-# the test for all pyverilog_toolbox function
+# the test for all systemverilog2verilog function
 #
 # Copyright (C) 2015, Ryosuke Fukatani
 # License: Apache 2.0
 #-------------------------------------------------------------------------------
 
-
-import sys
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 import unittest
 from systemverilog2verilog.src.sv2v import *
 import filecmp
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 
 class TestSequenceFunctions(unittest.TestCase):
     def setUp(self):

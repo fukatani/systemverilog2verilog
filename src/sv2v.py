@@ -11,8 +11,11 @@
 
 from optparse import OptionParser
 import os
-import copy
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from systemverilog2verilog.src import util
 from collections import OrderedDict
 
